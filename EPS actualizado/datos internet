@@ -1,0 +1,5 @@
+const char* ssid = "CRT-649693_2.4G";  // Reemplaza con el nombre de tu red WiFi
+const char* password = "902465524";  
+const char* serverUrl = "http://192.168.0.39:8080/remote.php/dav/files/sensor_user/datos.csv";
+const char* username = "sensor_user";
+const char* password_nc = "Sensordata123*";

@@ -8,7 +8,7 @@ const char* ssid = "CRT-649693_2.4G";  // Reemplaza con el nombre de tu red WiFi
 const char* password = "902465524";  
 
 // ===== Configuración NextCloud =====
-const char* serverUrl = "http://192.168.0.39:8080/remote.php/dav/files/sensor_user/datos.csv";
+const char* serverUrl = "http://192.168.0.39:8080/remote.php/dav/files/sensor_user/";
 const char* username = "sensor_user";
 const char* password_nc = "Sensordata123*";
 
@@ -18,6 +18,9 @@ const char* password_nc = "Sensordata123*";
 #define SD_MISO 19
 #define SD_SCK 18
 
+String nombreArchivo = "";
+String rutaNextCloud = "";
+//File archivo;
 File csvData;
 
 void setup() {
@@ -30,7 +33,7 @@ void setup() {
         Serial.print(".");
     }
     Serial.println(" Conectado al WiFi!");
-    Serial.println("IP address: "+ WiFi.localIP().toString());
+    Serial.println("Dirección IP: "+ WiFi.localIP().toString());
 
     // ===== Inicializar SD =====
     SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
@@ -39,6 +42,22 @@ void setup() {
         return;
     }
     Serial.println("Tarjeta SD inicializada correctamente.");
+
+
+     // ===== Crea un archivo nuevo y Generar nombre de archivo =====
+    unsigned long tiempoInicio = millis();
+    nombreArchivo = "/datos_" + String(tiempoInicio) + ".csv";
+    rutaNextCloud = String(serverUrl) + "datos_" + String(tiempoInicio) + ".csv";
+
+    // Crear archivo en SD con cabeceras
+    csvData = SD.open(nombreArchivo.c_str(), FILE_WRITE);
+    if (csvData) {
+        csvData.println("Tiempo,Aceleracion,Distancia,Fuerza,Velocidad");
+        csvData.close();
+        Serial.println("Archivo creado: " + nombreArchivo);
+    } else {
+        Serial.println("Error al crear el archivo en la SD.");
+    }
 }
 
 void loop() {
@@ -51,7 +70,7 @@ void loop() {
     float velocidad = random(2, 15);
 
     // ===== Guardar datos en SD =====
-    File csvFile = SD.open("/datos.csv", FILE_APPEND);
+    File csvFile = SD.open(nombreArchivo.c_str(), FILE_APPEND);
     if (csvFile) {
         csvFile.printf("%.2f,%.2f,%.2f,%.2f,%.2f\n", tiempo, aceleracion, distancia, fuerza, velocidad);
         csvFile.close();
@@ -63,24 +82,29 @@ void loop() {
     // ===== Enviar datos a NextCloud =====
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
-        http.begin(serverUrl);
+        http.begin(rutaNextCloud);
         http.setAuthorization(username, password_nc);
         http.addHeader("Content-Type", "text/csv");
 
-        String csvData = "Tiempo,Aceleracion,Distancia,Fuerza,Velocidad\n";
-        csvData += String(tiempo) + "," + String(aceleracion) + "," + String(distancia) + "," + 
-                   String(fuerza) + "," + String(velocidad) + "\n";
+    // Abrimos el archivo y lo leemos todo
+    csvFile = SD.open(nombreArchivo.c_str());
+    if (csvFile) {
+      String contenido = "";
+      while (csvFile.available()) {
+        contenido += (char)csvFile.read();
+      }
+      csvFile.close();
 
-        int httpResponseCode = http.PUT(csvData);
+        int httpResponseCode = http.PUT(contenido);
 
         if (httpResponseCode > 0) {
-            Serial.print("Datos enviados con código: ");
+            Serial.print("Archivo enviado a NextCloud. Código: ");
             Serial.println(httpResponseCode);
         } else {
-            Serial.print("Error en la conexión: ");
+            Serial.print("Error al subir datos: ");
             Serial.println(http.errorToString(httpResponseCode).c_str());
         }
-
+        }
         http.end();
     }
 

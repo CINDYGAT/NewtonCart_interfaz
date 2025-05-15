@@ -6,7 +6,7 @@ import os
 app = FastAPI()
 DATA_DIR = "data"
 
-# Asegúrate de que exista una carpeta para guardar los datos
+# Verifica que exista una carpeta que guarde los datos
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
@@ -19,7 +19,7 @@ async def recolectar(
     velocidad: float = Form(...)
 ):
     now = datetime.now()
-    nombre_archivo = now.strftime("%Y-%m-%d") + ".csv"
+    nombre_archivo = now.strftime("Carro1 %Y-%m-%d-%H:%M") + ".csv"
     ruta = os.path.join(DATA_DIR, nombre_archivo)
 
     archivo_nuevo = not os.path.exists(ruta)

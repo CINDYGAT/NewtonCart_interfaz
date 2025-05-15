@@ -32,3 +32,10 @@ Este programa permite a un ESP32:
     Luego, abre el archivo completo y lo envía mediante HTTP PUT a NextCloud.
 
     Los datos en la nube se sobrescriben en cada envío.
+
+
+**Creacion de la API **
+Recibe los datos de la ESP32 al conectarse a la misma red Wifi (API y ESP32). Para la API que corre en otro servidor, en este caso, otra computadora, se debe correr en terminal
+
+en terminal correr
+uvicorn main:app --host 0.0.0.0 --port 8000

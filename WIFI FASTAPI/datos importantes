@@ -1,0 +1,72 @@
+from fastapi import FastAPI, Form
+from datetime import datetime
+import csv
+import os
+import requests
+from threading import Thread
+
+app = FastAPI()
+DATA_DIR = "data"
+archivos_guardados = {}  # <--- Guardar el último minuto procesado por archivo
+
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+def subir_a_nextcloud(ruta_archivo: str):
+    nextcloud_url = "https://tuservidor/remote.php/dav/files/usuario/"
+    nextcloud_user = "tu_usuario"
+    nextcloud_password = "tu_contraseña_o_token"
+
+    nombre_archivo = os.path.basename(ruta_archivo)
+    url_final = nextcloud_url + nombre_archivo
+
+    with open(ruta_archivo, 'rb') as f:
+        response = requests.put(
+            url_final,
+            data=f,
+            auth=(nextcloud_user, nextcloud_password)
+        )
+
+    if response.status_code in [200, 201, 204]:
+        print(f"✅ Archivo subido: {nombre_archivo}")
+    else:
+        print(f"❌ Error al subir {nombre_archivo}: {response.status_code} - {response.text}")
+
+@app.post("/recolectar/")
+async def recolectar(
+    tiempo: float = Form(...),
+    aceleracion: float = Form(...),
+    distancia: float = Form(...),
+    fuerza: float = Form(...),
+    velocidad: float = Form(...)
+):
+    now = datetime.now()
+    nombre_archivo = now.strftime("Carro1 %Y-%m-%d-%H:%M") + ".csv"
+    ruta = os.path.join(DATA_DIR, nombre_archivo)
+    minuto_actual = now.strftime("%Y-%m-%d-%H:%M")
+
+    archivo_nuevo = not os.path.exists(ruta)
+
+    with open(ruta, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        if archivo_nuevo:
+            writer.writerow(["timestamp", "tiempo", "aceleracion", "distancia", "fuerza", "velocidad"])
+        writer.writerow([
+            now.strftime("%Y-%m-%d %H:%M:%S"),
+            tiempo,
+            aceleracion,
+            distancia,
+            fuerza,
+            velocidad
+        ])
+
+    # Verificar si hay que subir un archivo anterior
+    for archivo in list(archivos_guardados):
+        if archivo != nombre_archivo:
+            # Subirlo en un hilo separado para no bloquear
+            Thread(target=subir_a_nextcloud, args=(os.path.join(DATA_DIR, archivo),)).start()
+            del archivos_guardados[archivo]
+
+    archivos_guardados[nombre_archivo] = minuto_actual
+
+    return {"status": "ok", "mensaje": "Datos guardados exitosamente"}
